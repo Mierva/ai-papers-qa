@@ -9,26 +9,26 @@ if project_root not in sys.path:
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from llm_model.model import LlamaModel
+from langchain.chains import ConversationChain
+from langchain.schema import HumanMessage
+
 
 app = FastAPI()
 
-# llama = LlamaModel()
-# llama.init()
-# print('\nLoaded model successfuly.\n')
 generated_outputs = {}
 
 class GenerateRequest(BaseModel):
     prompt: str
     max_length: int = 100
 
-llama = None  # Start with an uninitialized model
+llama = None
 
 @app.on_event("startup")
 async def load_model():
     global llama
     if llama is None:
         llama = LlamaModel()
-        llama.init()
+        llama._initialize_model()
         print('\nLoaded model successfully.\n')
 
 
@@ -37,10 +37,14 @@ async def generate_text(request: GenerateRequest):
     global llama
     if llama is None:
         llama = LlamaModel()
-        llama.init()
+        llama._initialize_model()
+        # conversation = ConversationChain(llm=llama)
         print('\nLoaded model successfully.\n')
-    output = llama.generate(prompt=request.prompt, max_length=request.max_length)
-    return {"output_id": len(generated_outputs) + 1, "output": output}
+
+    output = llama._call([HumanMessage(content=request.prompt)])
+    # print(result.content)
+    # output = llama.generate(prompt=request.prompt, max_length=request.max_length)
+    return {"output_id": len(generated_outputs) + 1, "output": output.content}
 
 
 @app.get("/output/{output_id}")

@@ -1,5 +1,5 @@
 */__pycache__
-interface/.venv
+interface/streamlit_env
 interface/.devcontainer
 interface/.github
 interface/.streamlit

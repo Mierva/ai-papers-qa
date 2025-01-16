@@ -1,2 +1,2 @@
-HF_HOME: "D:/Projects/MLOPS_proj/llm/cache"
-model_weights: "D:/Projects/MLOPS_proj/llm_model/weights"
+# HF_HOME: "D:/Projects/MLOPS_proj/llm/cache"
+model_weights: "llm_model/weights"

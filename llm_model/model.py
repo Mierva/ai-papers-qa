@@ -1,12 +1,13 @@
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
 import yaml
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 from pydantic import Field
 
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import BaseMessage, AIMessage
+from langchain_core.messages import BaseMessage, AIMessage, HumanMessage
 from langchain_core.callbacks import CallbackManagerForLLMRun
+from langchain_core.outputs import ChatGeneration, ChatResult
 
 
 class LlamaModel(BaseChatModel):
@@ -31,7 +32,6 @@ class LlamaModel(BaseChatModel):
         self.model = None
 
     def _initialize_model(self):
-        # Load tokenizer and explicitly set padding token
         if not self.model_weights:
             raise ValueError("Model weights are not initialized.")
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_weights)
@@ -50,39 +50,38 @@ class LlamaModel(BaseChatModel):
             }
         )
 
-    def _generate(self, messages: List[str], max_length=100):
-        if self.tokenizer is None or self.model is None:
-            raise ValueError("Model is not initialized. Call `_initialize_model()` first.")
+    def _generate(self,
+                  messages: list[BaseMessage] | list[HumanMessage],
+                  stop: Optional[list[str]] = None,
+                  run_manager: Optional[CallbackManagerForLLMRun] = None,
+                  max_length=400) -> ChatResult:
+        # Extract text from HumanMessage if necessary
+        if isinstance(messages[0], HumanMessage):
+            messages = [message.content for message in messages]
 
+        print(f"Messages to generate: {messages}")
         inputs = self.tokenizer(messages, return_tensors="pt", padding=True).to(self.model.device)
         outputs = self.model.generate(inputs["input_ids"], max_length=max_length)
+        decoded_output = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
 
-        return self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+        ct_input_tokens = sum(len(message) for message in messages)
+        ct_output_tokens = len(decoded_output)
 
-    def _call(
-        self,
-        messages: List[BaseMessage],
-        stop: Optional[List[str]] = None,
-        run_manager: Optional[CallbackManagerForLLMRun] = None,
-    ) -> AIMessage:
-        """
-        Generate a response based on the provided messages.
-        """
-        # Extract the text from the BaseMessage objects
-        message_texts = [message.content for message in messages]
+        message = AIMessage(
+            content=decoded_output,
+            additional_kwargs={},
+            response_metadata={
+                "time_in_seconds": 3,  # Placeholder for actual time
+            },
+            usage_metadata={
+                "input_tokens": ct_input_tokens,
+                "output_tokens": ct_output_tokens,
+                "total_tokens": ct_input_tokens + ct_output_tokens,
+            },
+        )
 
-        # Generate a response
-        response_text = self._generate(message_texts)
-
-        # Apply stop sequences if provided
-        if stop:
-            for stop_token in stop:
-                if stop_token in response_text:
-                    response_text = response_text.split(stop_token)[0]
-                    break
-
-        # Return the response as an AIMessage
-        return AIMessage(content=response_text)
+        generation = ChatGeneration(message=message)
+        return ChatResult(generations=[generation])
 
     @property
     def _llm_type(self) -> str:

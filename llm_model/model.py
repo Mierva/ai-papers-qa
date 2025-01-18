@@ -54,14 +54,25 @@ class LlamaModel(BaseChatModel):
                   messages: list[BaseMessage] | list[HumanMessage],
                   stop: Optional[list[str]] = None,
                   run_manager: Optional[CallbackManagerForLLMRun] = None,
-                  max_length=400) -> ChatResult:
+                  max_length=150) -> ChatResult:
         # Extract text from HumanMessage if necessary
         if isinstance(messages[0], HumanMessage):
             messages = [message.content for message in messages]
 
         print(f"Messages to generate: {messages}")
         inputs = self.tokenizer(messages, return_tensors="pt", padding=True).to(self.model.device)
-        outputs = self.model.generate(inputs["input_ids"], max_length=max_length)
+        # outputs = self.model.generate(inputs["input_ids"], max_length=max_length)
+        outputs = self.model.generate(
+            messages,
+            return_tensors="pt",
+            padding=True,
+            #TODO: write a function to get the max_length depending on the user's request
+            max_new_tokens=50,  # Limit the generation to 50 new tokens
+            temperature=0.7,    # Optional: Adjust creativity
+            do_sample=True,     # Optional: Enable sampling
+            top_p=0.95,         # Optional: Nucleus sampling for diversity
+        ).to(self.model.device)
+
         decoded_output = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
 
         ct_input_tokens = sum(len(message) for message in messages)
@@ -82,6 +93,9 @@ class LlamaModel(BaseChatModel):
 
         generation = ChatGeneration(message=message)
         return ChatResult(generations=[generation])
+
+    def _call(self, messages: list[BaseMessage] | list[HumanMessage]) -> ChatResult:
+        return self._generate(messages)
 
     @property
     def _llm_type(self) -> str:

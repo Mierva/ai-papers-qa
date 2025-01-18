@@ -61,8 +61,6 @@ else:
                     "max_length": 100
                     }
 
-            output = requests.post(url=f'{API_URL}/generate', json=data)
+            output = requests.post(url=f'{API_URL}/chat', json=data)
             print(f'post_response: {output.json()}\n')
-            # model_response = requests.get(url=f'{API_URL}/output/{output_id}', data={output_id})
-
-            st.write(f"{output.json()['output']}")
+            st.write(f"{output.json()['response']}")

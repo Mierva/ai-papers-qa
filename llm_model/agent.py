@@ -30,7 +30,7 @@ class Chat():
                     verbose=True
                 )
 
-        ai_response = self.conversation_chain.predict(input=user_input)
+        ai_response = self.conversation_chain.run(user_input)
         return ai_response
 
     def get_conversation_chain(self):

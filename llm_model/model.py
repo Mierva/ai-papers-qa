@@ -3,6 +3,7 @@ import torch
 import yaml
 from typing import Any, Dict, Optional
 from pydantic import Field
+import time
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import BaseMessage, AIMessage, HumanMessage
@@ -60,29 +61,28 @@ class LlamaModel(BaseChatModel):
             messages = [message.content for message in messages]
 
         print(f"Messages to generate: {messages}")
+        start = time.perf_counter()
         inputs = self.tokenizer(messages, return_tensors="pt", padding=True).to(self.model.device)
         # outputs = self.model.generate(inputs["input_ids"], max_length=max_length)
         outputs = self.model.generate(
-            messages,
-            return_tensors="pt",
-            padding=True,
+            inputs["input_ids"],
             #TODO: write a function to get the max_length depending on the user's request
             max_new_tokens=50,  # Limit the generation to 50 new tokens
             temperature=0.7,    # Optional: Adjust creativity
             do_sample=True,     # Optional: Enable sampling
             top_p=0.95,         # Optional: Nucleus sampling for diversity
-        ).to(self.model.device)
+        )
 
         decoded_output = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
 
         ct_input_tokens = sum(len(message) for message in messages)
         ct_output_tokens = len(decoded_output)
-
+        end = time.perf_counter()
         message = AIMessage(
             content=decoded_output,
             additional_kwargs={},
             response_metadata={
-                "time_in_seconds": 3,  # Placeholder for actual time
+                "time_in_seconds": end-start,  # Placeholder for actual time
             },
             usage_metadata={
                 "input_tokens": ct_input_tokens,
